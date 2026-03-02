@@ -18,7 +18,6 @@ import {
   Send,
   AlertCircle,
   X,
-  CheckCircle,
   AlertTriangle,
 } from "lucide-react";
 
@@ -189,7 +188,7 @@ export default function ArenaPage() {
   const [sessionArticulationStrengths, setSessionArticulationStrengths] = useState<string[]>([]);
 
   const isBrowserSupported = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-  const [healthStatus, setHealthStatus] = useState({
+  const [_healthStatus, setHealthStatus] = useState({
     mic: "checking",
     speech: isBrowserSupported ? "healthy" : "unsupported",
     network: "healthy",
@@ -325,11 +324,11 @@ export default function ArenaPage() {
 
   // Coaching Engine
   const {
-    isRecording,
+    isRecording: _isRecording,
     isLoading: isLoadingAI,
     transcript: engineTranscript,
     interimTranscript: engineInterim,
-    setTranscript: setEngineTranscript,
+    setTranscript: _setEngineTranscript,
     startEngine,
     stopEngine
   } = useLiveCoachingEngine((feedback) => {
@@ -690,7 +689,7 @@ export default function ArenaPage() {
                   {sessionFillerWords.length === 0 ? (
                     <p className="text-xs text-center py-4 text-muted-foreground">No filler words yet! 🎉</p>
                   ) : (
-                    sessionFillerWords.map((fw, i) => (
+                    sessionFillerWords.map((fw, _i) => (
                       <div key={fw.word} className="flex items-center justify-between p-2 rounded bg-amber-500/5">
                         <span className="text-sm">"{fw.word}"</span>
                         <span className="font-bold text-amber-500">{fw.count}×</span>

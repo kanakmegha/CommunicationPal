@@ -76,7 +76,7 @@ export function useLiveCoachingEngine(
   onTranscript: (feedback: CoachingFeedback) => void
 ): UseLiveCoachingEngineReturn {
   const [isRecording, setIsRecording] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, _setIsLoading] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   
