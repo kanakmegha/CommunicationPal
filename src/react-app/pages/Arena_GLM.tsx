@@ -221,7 +221,7 @@ export default function ArenaPage() {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/health');
+        const res = await fetch('/api/health');
         if (res.ok) {
           setServerStatus('online');
           console.log('[Arena] ✅ Server is online');

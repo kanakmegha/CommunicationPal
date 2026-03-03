@@ -240,7 +240,7 @@ export default function ArenaPage() {
     console.log('[Arena] Getting AI response for:', userMessage);
     
     try {
-      const response = await fetch('http://localhost:3001/api/coaching', {
+      const response = await fetch('/api/coaching', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -567,7 +567,7 @@ export default function ArenaPage() {
 
     // Save to server
     try {
-      await fetch('http://localhost:3001/api/sessions', {
+      await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData)
