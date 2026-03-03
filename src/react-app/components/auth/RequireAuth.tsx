@@ -1,4 +1,4 @@
-import { PropsWithChildren } from "react";
+/* import { PropsWithChildren } from "react";
 import { useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 
 export default function RequireAuth({ children }: PropsWithChildren) {
@@ -8,3 +8,4 @@ export default function RequireAuth({ children }: PropsWithChildren) {
   return <>{children}</>;
 }
 
+ */
