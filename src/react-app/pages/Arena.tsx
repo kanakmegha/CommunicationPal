@@ -5,16 +5,14 @@ import { ScoreBar } from "@/react-app/components/ScoreBar";
 import { AudioVisualizer } from "@/react-app/components/AudioVisualizer";
 import { SwapSuggestion } from "@/react-app/components/SwapSuggestion";
 import { useLiveCoachingEngine } from "@/react-app/hooks/useLiveCoachingEngine";
-import { useSession } from "@/react-app/context/SessionContext";
-import { generateGeminiFeedback } from "@/react-app/lib/gemini";
+//import { useSession } from "@/react-app/context/SessionContext";
+//import { generateGeminiFeedback } from "@/react-app/lib/gemini";
 import {
   Zap,
   Square,
   Mic,
   MicOff,
-  Sparkles,
   MessageCircle,
-  Replace,
   Send,
   AlertCircle,
   X,
@@ -46,12 +44,12 @@ interface ArticulationAnalysis {
   strengths: string[];
 }
 
-const parameterMeta: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+/*const parameterMeta: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   articulation: { label: "Articulation", icon: <Mic className="w-4 h-4" />, color: "bg-cyan-400" },
   expression: { label: "Expression", icon: <Sparkles className="w-4 h-4" />, color: "bg-purple-400" },
   verbal_crunches: { label: "Verbal Crunches", icon: <MessageCircle className="w-4 h-4" />, color: "bg-amber-400" },
   swap_list: { label: "Swap List", icon: <Replace className="w-4 h-4" />, color: "bg-emerald-400" },
-};
+};*/
 
 function analyzeArticulation(text: string): ArticulationAnalysis {
   const issues: string[] = [];
@@ -191,7 +189,7 @@ export default function ArenaPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeParams = searchParams.getAll("focus");
-  const { setSessionData } = useSession();
+ // const { setSessionData } = useSession();
 
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
