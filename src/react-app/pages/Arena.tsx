@@ -503,93 +503,64 @@ export default function ArenaPage() {
 
   // End session and save to vault
   const handleEndSession = async () => {
-    // Stop everything
-    window.speechSynthesis.cancel();
-    setIsListening(false);
+  // Stop everything
+  window.speechSynthesis.cancel();
+  setIsListening(false);
 
-    // Calculate parameter scores
-    const visibleParams = activeParams.filter((p) => p !== "swap_list");
-    const parameterScores = visibleParams.map((param) => ({
-      id: param,
-      label: parameterMeta[param]?.label || param,
-      score: scores[param]?.current || 0,
-      previous: Math.max(1, (scores[param]?.current || 5) - 1),
-    }));
+  // Calculate scores
+  const finalParams = [
+    { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 6 },
+    { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 5 },
+    { id: 'verbal_crunches', label: 'Verbal Crunches', score: scores.verbal_crunches.current, previous: 7 },
+  ];
 
-    // Default params if none selected
-    const finalParams = parameterScores.length > 0 ? parameterScores : [
-      { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 6 },
-      { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 5 },
-      { id: 'verbal_crunches', label: 'Verbal Crunches', score: scores.verbal_crunches.current, previous: 7 },
-    ];
+  const overallScore = Math.round(
+    (finalParams.reduce((s, p) => s + p.score, 0) / finalParams.length) * 10
+  );
 
-    const overallScore = Math.round(
-      (finalParams.reduce((s, p) => s + p.score, 0) / finalParams.length) * 10
-    );
+  // Build feedback
+  const feedback: string[] = [];
+  if (sessionArticulationIssues.length > 0) {
+    feedback.push(`Work on: ${[...new Set(sessionArticulationIssues)].slice(0, 2).join(', ')}`);
+  }
+  if (sessionArticulationStrengths.length > 0) {
+    feedback.push(`Strengths: ${[...new Set(sessionArticulationStrengths)].slice(0, 2).join(', ')}`);
+  }
+  if (sessionFillerWords.length > 0) {
+    feedback.push(`Filler words: ${sessionFillerWords.slice(0, 3).map(f => `"${f.word}" (${f.count}x)`).join(', ')}`);
+  } else {
+    feedback.push('No filler words - excellent!');
+  }
 
-    // Generate feedback
-    let feedback: string[] = [];
-    try {
-      const geminiFeedback = await generateGeminiFeedback(
-        finalParams.map(ps => ({ param: ps.id, label: ps.label, score: ps.score }))
-      );
-      feedback = Array.isArray(geminiFeedback) ? geminiFeedback : [geminiFeedback];
-    } catch (error) {
-      console.error('[Arena] Feedback error:', error);
-    }
-
-    // Add session insights
-    if (sessionArticulationIssues.length > 0) {
-      feedback.push(`Work on: ${[...new Set(sessionArticulationIssues)].slice(0, 2).join(', ')}`);
-    }
-    if (sessionArticulationStrengths.length > 0) {
-      feedback.push(`Strengths: ${[...new Set(sessionArticulationStrengths)].slice(0, 2).join(', ')}`);
-    }
-    if (sessionFillerWords.length > 0) {
-      feedback.push(`Filler words: ${sessionFillerWords.slice(0, 3).map(f => `"${f.word}" (${f.count}x)`).join(', ')}`);
-    } else {
-      feedback.push('No filler words - excellent!');
-    }
-
-    // Session data for server
-    const sessionData = {
-      overall_score: overallScore,
-      duration_seconds: sessionTime,
-      parameter_scores: finalParams,
-      learning_curve: [
-        { turn: 1, score: Math.max(50, overallScore - 15) },
-        { turn: 2, score: Math.max(50, overallScore - 5) },
-        { turn: 3, score: overallScore },
-      ],
-      feedback,
-      focus_parameters: visibleParams.length > 0 ? visibleParams : ['articulation', 'expression', 'verbal_crunches'],
-    };
-
-    // Save to server
-    try {
-      await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionData)
-      });
-      console.log('[Arena] Session saved to vault!');
-    } catch (error) {
-      console.error('[Arena] Save failed:', error);
-    }
-
-    // Save to context for debrief page
-    setSessionData({
-      overallScore,
-      previousScore: Math.max(50, overallScore - Math.floor(Math.random() * 10)),
-      durationSeconds: sessionTime,
-      parameters: finalParams,
-      learningCurve: sessionData.learning_curve,
-      feedback,
-      focusParameters: sessionData.focus_parameters,
-    });
-
-    navigate("/debrief");
+  // Session data
+  const sessionData = {
+    overall_score: overallScore,
+    duration_seconds: sessionTime,
+    parameter_scores: finalParams,
+    learning_curve: [
+      { turn: 1, score: Math.max(50, overallScore - 15) },
+      { turn: 2, score: Math.max(50, overallScore - 5) },
+      { turn: 3, score: overallScore },
+    ],
+    feedback,
+    focus_parameters: ['articulation', 'expression', 'verbal_crunches'],
   };
+
+  // AUTO-SAVE to history
+  try {
+    const response = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData)
+    });
+    console.log('[Arena] Session auto-saved:', response.ok);
+  } catch (error) {
+    console.error('[Arena] Save failed:', error);
+  }
+
+  // Navigate to debrief
+  navigate("/debrief");
+};
 
   // Toggle listening
   const toggleListening = useCallback(() => {
