@@ -1,17 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// api/coaching.ts
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // ===== DEBUG LOGGING =====
-  console.log('=== DEBUG START ===');
-  console.log('1. API Key exists:', !!process.env.VITE_GLM_API_KEY);
-  console.log('2. API Key length:', process.env.VITE_GLM_API_KEY?.length);
-  console.log('3. API Key first 10 chars:', process.env.VITE_GLM_API_KEY?.substring(0, 10));
-  console.log('4. Request method:', req.method);
-  console.log('5. Request body:', JSON.stringify(req.body));
-  console.log('=== DEBUG END ===');
-
+export default async function handler(req: any, res: any) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -20,20 +12,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Check if API key exists
-  if (!process.env.VITE_GLM_API_KEY) {
-    console.log('ERROR: API Key is missing!');
-    return res.json({ 
-      success: false, 
-      error: 'API_KEY_MISSING',
-      debug: 'VITE_GLM_API_KEY not found in environment',
-      fallback: "Tell me more about that!"
-    });
-  }
-
   try {
-    const { message, sessionId } = req.body;
-    console.log('Calling OpenRouter with message:', message);
+    const { message, sessionId, fillerWords, articulationFeedback } = req.body;
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -46,41 +26,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-001',
         messages: [
-          { role: 'system', content: 'You are Coach, a friendly speech coach. Keep responses SHORT.' },
+          { 
+            role: 'system', 
+            content: `You are Coach, a friendly conversation partner who happens to give speech tips.
+
+CRITICAL RULES:
+1. You are having a NORMAL CONVERSATION first - respond to what they said like a friend would
+2. NEVER use markdown, asterisks, bullet points, or formatting - just plain text
+3. Be genuinely interested and curious about their topic
+4. Keep responses to 2-3 sentences MAX
+5. Ask ONE natural follow-up question about their topic
+6. If there's a speech note (filler words, articulation issues), add it naturally at the end in parentheses - keep it brief!
+
+EXAMPLES:
+
+User: "I've been thinking about how AI is affecting our life"
+You: "That's such a relevant topic these days. What aspects of AI's impact concern you most? (Quick tip - try finishing your sentences with confidence!)"
+
+User: "I'm worried about AI replacing jobs"
+You: "That's a valid concern a lot of people share. What field do you work in? (Also, you're doing great - just watch those filler words!)"
+
+User: "AI replacing people in the job market"
+You: "The job market is definitely changing with AI. What kind of work are you in? (Try to finish your thoughts more completely!)"
+
+NEVER:
+- Use bullet points
+- Use asterisks or bold text
+- Ask about "pronunciation" 
+- Give generic responses like "That's interesting"
+- Sound like a robot or textbook`
+          },
           { role: 'user', content: message }
         ],
-        max_tokens: 200
+        max_tokens: 150,
+        temperature: 0.8
       })
     });
 
-    console.log('OpenRouter response status:', response.status);
-    
-    const responseText = await response.text();
-    console.log('OpenRouter response:', responseText);
-
-    if (!response.ok) {
-      console.log('OpenRouter error:', responseText);
-      return res.json({ 
-        success: false, 
-        error: 'API_ERROR',
-        debug: responseText,
-        fallback: "Tell me more about that!"
-      });
-    }
-
-    const data = JSON.parse(responseText);
+    const data = await response.json();
     const aiResponse = data.choices?.[0]?.message?.content;
-    console.log('AI Response:', aiResponse);
 
     return res.json({ success: true, response: aiResponse });
 
   } catch (error: any) {
-    console.log('Catch error:', error.message);
     return res.json({ 
       success: false, 
-      error: 'CATCH_ERROR',
-      debug: error.message,
-      fallback: "Tell me more about that!"
+      fallback: "That's interesting! Tell me more about that."
     });
   }
 }
