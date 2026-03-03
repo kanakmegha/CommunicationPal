@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // api/coaching.ts
+// api/coaching.ts
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+// Store conversations in memory (keyed by sessionId)
+const conversations = new Map<string, any[]>();
 
 export default async function handler(req: any, res: any) {
   // CORS
@@ -14,50 +18,73 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { message, sessionId, fillerWords, articulationFeedback } = req.body;
+    
+    // Get or create conversation history
+    const historyKey = sessionId || 'default';
+    
+    if (!conversations.has(historyKey)) {
+      // Initialize with system prompt
+      conversations.set(historyKey, [
+        {
+          role: 'system',
+          content: `You are Coach, a friendly conversation partner who gives speech tips.
 
+CRITICAL RULES:
+1. You are having a NORMAL CONVERSATION - remember what was discussed!
+2. NEVER use markdown, asterisks, or formatting - just plain text
+3. Be genuinely interested and curious about their topic
+4. Keep responses to 2-3 sentences MAX
+5. Ask ONE natural follow-up question about their topic
+6. If there's a speech note, add it briefly in parentheses at the end
+7. REMEMBER THE CONTEXT - if they mentioned magic tricks before, remember that!
+
+EXAMPLES:
+
+User: "I want to learn magic tricks"
+You: "That's so cool! Magic tricks are such a fun skill. What kind of tricks are you most interested in learning? (You're doing great - keep going!)"
+
+User: "I want to learn card shuffling"
+You: "Card shuffling is a great foundation for magic! Are you learning it for magic tricks or just for fun? (Try to finish your sentences completely!)"
+`
+        }
+      ]);
+    }
+
+    // Get existing conversation history
+    const history = conversations.get(historyKey)!;
+
+    // Build user message with speech notes
+    let userMessage = message;
+    if (fillerWords?.length > 0) {
+      userMessage += `\n\n[Speech note: Used filler words: ${fillerWords.map((f: any) => `"${f.word}" (${f.count}x)`).join(', ')}]`;
+    }
+    if (articulationFeedback) {
+      userMessage += `\n\n[Speech note: ${articulationFeedback}]`;
+    }
+
+    // Add user message to history
+    history.push({ role: 'user', content: userMessage });
+
+    // Keep history manageable (last 20 messages)
+    while (history.length > 20) {
+      history.shift();
+    }
+
+    console.log('[Coaching] Session:', historyKey);
+    console.log('[Coaching] History length:', history.length);
+
+    // Call OpenRouter with FULL conversation history
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.VITE_GLM_API_KEY}`,
-        'HTTP-Referer': 'https://communicationpal.vercel.app',
+        'HTTP-Referer': 'https://speechpal.vercel.app',
         'X-Title': 'Speech Coaching Arena'
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-001',
-        messages: [
-          { 
-            role: 'system', 
-            content: `You are Coach, a friendly conversation partner who happens to give speech tips.
-
-CRITICAL RULES:
-1. You are having a NORMAL CONVERSATION first - respond to what they said like a friend would
-2. NEVER use markdown, asterisks, bullet points, or formatting - just plain text
-3. Be genuinely interested and curious about their topic
-4. Keep responses to 2-3 sentences MAX
-5. Ask ONE natural follow-up question about their topic
-6. If there's a speech note (filler words, articulation issues), add it naturally at the end in parentheses - keep it brief!
-
-EXAMPLES:
-
-User: "I've been thinking about how AI is affecting our life"
-You: "That's such a relevant topic these days. What aspects of AI's impact concern you most? (Quick tip - try finishing your sentences with confidence!)"
-
-User: "I'm worried about AI replacing jobs"
-You: "That's a valid concern a lot of people share. What field do you work in? (Also, you're doing great - just watch those filler words!)"
-
-User: "AI replacing people in the job market"
-You: "The job market is definitely changing with AI. What kind of work are you in? (Try to finish your thoughts more completely!)"
-
-NEVER:
-- Use bullet points
-- Use asterisks or bold text
-- Ask about "pronunciation" 
-- Give generic responses like "That's interesting"
-- Sound like a robot or textbook`
-          },
-          { role: 'user', content: message }
-        ],
+        messages: history,  // ✅ Send the FULL history, not just current message
         max_tokens: 150,
         temperature: 0.8
       })
@@ -66,11 +93,19 @@ NEVER:
     const data = await response.json();
     const aiResponse = data.choices?.[0]?.message?.content;
 
+    // Add AI response to history
+    if (aiResponse) {
+      history.push({ role: 'assistant', content: aiResponse });
+    }
+
+    console.log('[Coaching] AI Response:', aiResponse);
+
     return res.json({ success: true, response: aiResponse });
 
   } catch (error: any) {
-    return res.json({ 
-      success: false, 
+    console.error('[Coaching] Error:', error.message);
+    return res.json({
+      success: false,
       fallback: "That's interesting! Tell me more about that."
     });
   }
