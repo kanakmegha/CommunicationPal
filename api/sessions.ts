@@ -1,72 +1,62 @@
-import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseServiceRole);
+import { supabase } from "../lib/supabase";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
+
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    // =========================
-    // GET - Fetch sessions
-    // =========================
+
+    // GET sessions
     if (req.method === "GET") {
+
       const { data, error } = await supabase
         .from("sessions")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      console.log("[Sessions API] Returning sessions:", data.length);
       return res.json(data);
     }
 
-    // =========================
-    // POST - Save session
-    // =========================
+    // POST session
     if (req.method === "POST") {
+
       const session = {
-        ...req.body,
-        created_at: new Date().toISOString(),
+        overall_score: req.body.overall_score,
+        duration_seconds: req.body.duration_seconds,
+        parameter_scores: req.body.parameter_scores,
+        learning_curve: req.body.learning_curve,
+        feedback: req.body.feedback,
+        focus_parameters: req.body.focus_parameters
       };
 
       const { data, error } = await supabase
         .from("sessions")
         .insert([session])
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
 
-      console.log("[Sessions API] Session saved:", data.id);
+      return res.json({ success: true, session: data });
 
-      return res.json({
-        success: true,
-        session: data,
-      });
     }
 
-    return res.status(405).json({
-      error: "Method not allowed",
-      allowedMethods: ["GET", "POST", "OPTIONS"],
-    });
+    return res.status(405).json({ error: "Method not allowed" });
 
-  } catch (error: any) {
-    console.error("[Sessions API] ERROR:", error.message);
+  } catch (err: any) {
+
+    console.error("[Sessions API Error]", err.message);
+
     return res.status(500).json({
       success: false,
-      error: error.message,
+      error: err.message
     });
+
   }
 }
