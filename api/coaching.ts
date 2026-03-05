@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseService as supabase } from "../src/react-app/lib/supabase";
+import { supabase } from "./_supabase";
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 

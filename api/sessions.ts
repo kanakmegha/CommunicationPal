@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseService as supabase } from "../src/react-app/lib/supabase";
+import { supabase } from "./_supabase";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 
