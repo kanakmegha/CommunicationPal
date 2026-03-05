@@ -1,33 +1,9 @@
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// api/coaching.ts
-// api/coaching.ts
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Store conversations in memory (keyed by sessionId)
-const conversations = new Map<string, any[]>();
-
-export default async function handler(req: any, res: any) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  try {
-    const { message, sessionId, fillerWords, articulationFeedback } = req.body;
-    
-    // Get or create conversation history
-    const historyKey = sessionId || 'default';
-    
-    if (!conversations.has(historyKey)) {
-      // Initialize with system prompt
-      conversations.set(historyKey, [
-        {
-          role: 'system',
-          content: `You are Coach, a friendly conversation partner who gives speech tips.
+const SYSTEM_PROMPT = `You are Coach, a friendly conversation partner who gives speech tips.
 
 CRITICAL RULES:
 1. You are having a NORMAL CONVERSATION - remember what was discussed!
@@ -45,13 +21,27 @@ You: "That's so cool! Magic tricks are such a fun skill. What kind of tricks are
 
 User: "I want to learn card shuffling"
 You: "Card shuffling is a great foundation for magic! Are you learning it for magic tricks or just for fun? (Try to finish your sentences completely!)"
-`
-        }
-      ]);
-    }
+`;
 
-    // Get existing conversation history
-    const history = conversations.get(historyKey)!;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const { message, sessionId, fillerWords, articulationFeedback } = req.body;
+    
+    // Get or create conversation history from KV
+    const historyKey = `conversation:${sessionId || 'default'}`;
+    let history: any[] | null = await kv.get(historyKey);
+    
+    if (!history) {
+      history = [{ role: 'system', content: SYSTEM_PROMPT }];
+    }
 
     // Build user message with speech notes
     let userMessage = message;
@@ -84,7 +74,7 @@ You: "Card shuffling is a great foundation for magic! Are you learning it for ma
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-001',
-        messages: history,  // ✅ Send the FULL history, not just current message
+        messages: history,
         max_tokens: 150,
         temperature: 0.8
       })
@@ -96,6 +86,8 @@ You: "Card shuffling is a great foundation for magic! Are you learning it for ma
     // Add AI response to history
     if (aiResponse) {
       history.push({ role: 'assistant', content: aiResponse });
+      // Save updated history back to KV with a 24h expiration
+      await kv.set(historyKey, history, { ex: 86400 });
     }
 
     console.log('[Coaching] AI Response:', aiResponse);
