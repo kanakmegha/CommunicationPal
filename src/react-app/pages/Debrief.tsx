@@ -62,7 +62,7 @@ export default function DebriefPage() {
         <div className="bg-card rounded-xl p-4 mb-4">
           <h3 className="font-semibold mb-3">Scores</h3>
           <div className="space-y-3">
-            {sessionData.parameters.map((param: any) => (
+            {sessionData.parameters?.map((param: any) => (
               <div key={param.id} className="flex justify-between items-center">
                 <span className="text-muted-foreground">{param.label}</span>
                 <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function DebriefPage() {
             Feedback
           </h3>
           <ul className="space-y-2">
-            {sessionData.feedback.map((item, i) => (
+            {sessionData.feedback?.map((item, i) => (
               <li key={i} className="text-muted-foreground text-sm">
                 • {item}
               </li>

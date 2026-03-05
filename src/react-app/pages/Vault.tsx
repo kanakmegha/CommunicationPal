@@ -52,10 +52,11 @@ export default function VaultPage() {
       const response = await fetch("/api/sessions");
       if (response.ok) {
         const data = await response.json();
-        setSessions(data);
+        setSessions(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
@@ -149,7 +150,7 @@ export default function VaultPage() {
         ) : (
           /* Session list */
           <div className="space-y-3">
-            {sessions.map((session) => (
+            {sessions?.map((session) => (
               <button
                 key={session.id}
                 onClick={() => setSelectedSession(selectedSession?.id === session.id ? null : session)}
@@ -178,7 +179,7 @@ export default function VaultPage() {
                         <span>{formatDuration(session.duration_seconds)}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        {session.parameter_scores.map((param) => (
+                        {session.parameter_scores?.map((param) => (
                           <div 
                             key={param.id}
                             className="w-6 h-6 rounded-md bg-secondary flex items-center justify-center text-muted-foreground"
@@ -204,7 +205,7 @@ export default function VaultPage() {
                   <div className="mt-4 pt-4 border-t border-border">
                     {/* Parameter scores */}
                     <div className="grid grid-cols-3 gap-3 mb-4">
-                      {session.parameter_scores.map((param) => (
+                      {session.parameter_scores?.map((param) => (
                         <div key={param.id} className="bg-secondary/50 rounded-xl p-3">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-muted-foreground">
@@ -224,7 +225,7 @@ export default function VaultPage() {
                         Key Feedback
                       </h4>
                       <ul className="space-y-2">
-                        {session.feedback.slice(0, 2).map((item, i) => (
+                        {session.feedback?.slice(0, 2).map((item, i) => (
                           <li key={i} className="text-sm text-foreground/80 pl-3 border-l-2 border-primary/30">
                             {item}
                           </li>
