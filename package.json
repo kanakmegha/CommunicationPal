@@ -9,6 +9,7 @@
     "@genkit-ai/googleai": "^1.28.0",
     "@google/generative-ai": "^0.24.1",
     "@hono/zod-validator": "^0.5.0",
+    "@supabase/supabase-js": "^2.98.0",
     "@vercel/kv": "^3.0.0",
     "@vercel/node": "^5.6.10",
     "class-variance-authority": "^0.7.1",

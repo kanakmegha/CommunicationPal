@@ -1,7 +1,10 @@
-import { kv } from '@vercel/kv';
+import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseServiceRole);
 
 const SYSTEM_PROMPT = `You are Coach, a friendly conversation partner who gives speech tips.
 
@@ -35,13 +38,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { message, sessionId, fillerWords, articulationFeedback } = req.body;
     
-    // Get or create conversation history from KV
-    const historyKey = `conversation:${sessionId || 'default'}`;
-    let history: any[] | null = await kv.get(historyKey);
-    
-    if (!history) {
-      history = [{ role: 'system', content: SYSTEM_PROMPT }];
-    }
+    // Get conversation history from Supabase
+    const sessionKey = sessionId || 'default';
+    const { data: convData, error: fetchError } = await supabase
+      .from('conversations')
+      .select('history')
+      .eq('session_id', sessionKey)
+      .single();
+
+    let history: any[] = convData?.history || [{ role: 'system', content: SYSTEM_PROMPT }];
 
     // Build user message with speech notes
     let userMessage = message;
@@ -60,10 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       history.shift();
     }
 
-    console.log('[Coaching] Session:', historyKey);
-    console.log('[Coaching] History length:', history.length);
-
-    // Call OpenRouter with FULL conversation history
+    // Call OpenRouter
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -86,11 +88,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Add AI response to history
     if (aiResponse) {
       history.push({ role: 'assistant', content: aiResponse });
-      // Save updated history back to KV with a 24h expiration
-      await kv.set(historyKey, history, { ex: 86400 });
+      
+      // Save updated history back to Supabase
+      const { error: saveError } = await supabase
+        .from('conversations')
+        .upsert({ session_id: sessionKey, history: history, updated_at: new Date().toISOString() }, { onConflict: 'session_id' });
+        
+      if (saveError) console.error('[Coaching] Save Error:', saveError.message);
     }
-
-    console.log('[Coaching] AI Response:', aiResponse);
 
     return res.json({ success: true, response: aiResponse });
 

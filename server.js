@@ -1,33 +1,40 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-import { kv } from '@vercel/kv';
+import { createClient } from '@supabase/supabase-js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Supabase Configuration
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 // OpenRouter API Configuration
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const API_KEY = process.env.VITE_GLM_API_KEY;
-
-// In-memory storage
-const conversationHistory = new Map();
-const sessionsDB = [];
 
 // Coaching Endpoint
 app.post('/api/coaching', async (req, res) => {
   try {
     const { message, fillerWords, sessionId, articulationFeedback } = req.body;
-    console.log('[Server] Request:', message);
+    console.log('[Server] Request from session:', sessionId);
 
-    const historyKey = sessionId || 'default';
+    const sessionKey = sessionId || 'default';
     
-    if (!conversationHistory.has(historyKey)) {
-      conversationHistory.set(historyKey, [{
-        role: 'system',
-        content: `You are Coach, a warm and friendly speech coaching assistant having a real conversation.
+    // Get history from Supabase
+    const { data: convData } = await supabase
+      .from('conversations')
+      .select('history')
+      .eq('session_id', sessionKey)
+      .single();
 
+    let history = convData?.history || [{
+      role: 'system',
+      content: `You are Coach, a warm and friendly speech coaching assistant having a real conversation.
+      
 PERSONALITY:
 - You're like a supportive friend having a real conversation
 - You're genuinely interested in what the user has to say
@@ -41,18 +48,11 @@ RESPONSE RULES:
 - Never give generic responses like "That's interesting"
 
 EXAMPLES:
-
 User: "I've been thinking about how mental health is very important"
 Coach: "Mental health is such an important topic, especially these days. What made you start thinking about it? (Quick tip: try to finish your sentences with confidence!)"
 
-User: "I'm worried about AI taking jobs"
-Coach: "That's a valid concern many people share. What kind of work do you do that might be affected? (Also, you mentioned 'um' a couple times - try pausing instead!)"
-
 IMPORTANT: Always continue the conversation naturally. The user should feel like they're talking to a friend who happens to give speech tips.`
-      }]);
-    }
-
-    const history = conversationHistory.get(historyKey);
+    }];
 
     let userMessage = message;
     if (fillerWords && fillerWords.length > 0) {
@@ -65,7 +65,7 @@ IMPORTANT: Always continue the conversation naturally. The user should feel like
     history.push({ role: 'user', content: userMessage });
     while (history.length > 20) history.shift();
 
-    console.log('[Server] Calling Gemini API...');
+    console.log('[Server] Calling OpenRouter API...');
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -91,35 +91,44 @@ IMPORTANT: Always continue the conversation naturally. The user should feel like
 
     const data = await response.json();
     const aiResponse = data.choices?.[0]?.message?.content;
-    console.log('[Server] AI Response:', aiResponse);
+    console.log('[Server] AI Response received');
 
     if (aiResponse) {
       history.push({ role: 'assistant', content: aiResponse });
+      // Save to Supabase
+      await supabase
+        .from('conversations')
+        .upsert({ session_id: sessionKey, history: history, updated_at: new Date().toISOString() }, { onConflict: 'session_id' });
     }
 
     res.json({ success: true, response: aiResponse });
 
   } catch (error) {
     console.error('[Server] Error:', error.message);
-    const fallback = getSmartFallback(req.body?.message, req.body?.fillerWords);
-    res.json({ success: false, error: error.message, fallback });
+    res.json({ success: false, error: error.message });
   }
 });
 
 // Sessions Endpoints
 
 // Save a session
-app.post('/api/sessions', (req, res) => {
+app.post('/api/sessions', async (req, res) => {
   try {
     const session = {
-      id: Date.now(),
       ...req.body,
       created_at: new Date().toISOString()
     };
-    sessionsDB.unshift(session);
-    console.log('[Server] Session saved:', session.id, 'Score:', session.overall_score);
-    console.log('[Server] Total sessions:', sessionsDB.length);
-    res.json({ success: true, session });
+    
+    const { data, error } = await supabase
+      .from('sessions')
+      .insert([session])
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    console.log('[Server] Session saved to Supabase:', data.id);
+    res.json({ success: true, session: data });
   } catch (error) {
     console.error('[Server] Save error:', error.message);
     res.status(500).json({ success: false, error: error.message });
@@ -127,23 +136,41 @@ app.post('/api/sessions', (req, res) => {
 });
 
 // Get all sessions
-app.get('/api/sessions', (req, res) => {
-  console.log('[Server] Fetching sessions, count:', sessionsDB.length);
-  res.json(sessionsDB);
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get single session
-app.get('/api/sessions/:id', (req, res) => {
-  const session = sessionsDB.find(s => s.id === parseInt(req.params.id));
-  res.json(session || null);
+app.get('/api/sessions/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (error) throw error;
+    res.json(data || null);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
-    message: 'Server is running',
-    sessionsCount: sessionsDB.length 
+    message: 'Server is running with Supabase integration'
   });
 });
 

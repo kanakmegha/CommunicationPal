@@ -1,13 +1,11 @@
-import { kv } from "@vercel/kv";
+import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log("========================================");
-  console.log("[Sessions API] START");
-  console.log("[Sessions API] Method:", req.method);
-  console.log("[Sessions API] URL:", req.url);
-  console.log("========================================");
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseServiceRole);
 
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -22,11 +20,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // GET - Fetch sessions
     // =========================
     if (req.method === "GET") {
-      const sessions = await kv.lrange("sessions", 0, 50);
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-      console.log("[Sessions API] Returning sessions:", sessions.length);
+      if (error) throw error;
 
-      return res.json(sessions);
+      console.log("[Sessions API] Returning sessions:", data.length);
+      return res.json(data);
     }
 
     // =========================
@@ -34,27 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // =========================
     if (req.method === "POST") {
       const session = {
-        id: Date.now(),
         ...req.body,
         created_at: new Date().toISOString(),
       };
 
-      console.log("[Sessions API] Saving session:", session.id);
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert([session])
+        .select()
+        .single();
 
-      // push to KV list
-      await kv.lpush("sessions", session);
+      if (error) throw error;
 
-      const totalSessions = await kv.llen("sessions");
-
-      console.log("[Sessions API] Session saved. Total:", totalSessions);
+      console.log("[Sessions API] Session saved:", data.id);
 
       return res.json({
         success: true,
-        session,
-        debug: {
-          totalSessions,
-          savedAt: session.created_at,
-        },
+        session: data,
       });
     }
 
@@ -65,7 +64,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error("[Sessions API] ERROR:", error.message);
-
     return res.status(500).json({
       success: false,
       error: error.message,
