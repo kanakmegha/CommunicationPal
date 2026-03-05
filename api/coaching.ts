@@ -1,5 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from "./_supabase";
+
+// Inline Supabase Client for Production Stability
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -24,6 +29,8 @@ You: "Card shuffling is a great foundation for magic! Are you learning it for ma
 `;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("[Coaching API] Request Received");
+
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -31,6 +38,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("[Coaching API] CRITICAL ERROR: Supabase environment variables are missing!");
+    return res.status(500).json({ error: "Server configuration error: Missing Supabase credentials." });
+  }
+
+  const glmApiKey = process.env.VITE_GLM_API_KEY || process.env.GLM_API_KEY;
+  if (!glmApiKey) {
+    console.error("[Coaching API] CRITICAL ERROR: GLM API Key (VITE_GLM_API_KEY) is missing!");
+    return res.status(500).json({ error: "Server configuration error: Missing LLM API key." });
+  }
 
   try {
     const { message, sessionId, fillerWords, articulationFeedback } = req.body;
@@ -67,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_GLM_API_KEY}`,
+        'Authorization': `Bearer ${glmApiKey}`,
         'HTTP-Referer': 'https://speechpal.vercel.app',
         'X-Title': 'Speech Coaching Arena'
       },

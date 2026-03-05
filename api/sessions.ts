@@ -1,7 +1,18 @@
+import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabase } from "./_supabase";
+
+// Inline Supabase Client for Production Stability
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("[Sessions API] Request Received:", req.method);
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("[Sessions API] CRITICAL ERROR: Supabase environment variables are missing!");
+    return res.status(500).json({ error: "Server configuration error: Missing Supabase credentials." });
+  }
 
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
