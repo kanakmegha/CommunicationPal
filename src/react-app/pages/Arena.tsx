@@ -388,15 +388,13 @@ data = await response.json();
         }
       }));
       
-      let verbalScore = 10;
-      if (fillerWords.length > 0) {
-        verbalScore = Math.max(1, 10 - fillerWords.reduce((acc, f) => acc + f.count, 0));
-      }
+      // Count up from 0 — shows total fillers used so far
+      const newFillerCount = fillerWords.reduce((acc, f) => acc + f.count, 0);
       setScores(prev => ({
         ...prev,
         verbal_crunches: {
-          current: verbalScore,
-          trend: verbalScore > prev.verbal_crunches.current ? "up" : verbalScore < prev.verbal_crunches.current ? "down" : "stable"
+          current: prev.verbal_crunches.current + newFillerCount,
+          trend: newFillerCount > 0 ? "down" : "stable"
         }
       }));
       
@@ -515,16 +513,20 @@ data = await response.json();
 
   console.log('[Arena] Ending session...');
 
-  // Calculate scores
+  // Calculate scores — verbal_crunches.current is now total filler count (higher = worse)
+  const totalFillers = scores.verbal_crunches.current;
+  const fillerPenalty = Math.min(totalFillers * 2, 30); // up to -30 pts max penalty
+
   const finalParams = [
-    { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 6 },
-    { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 5 },
-    { id: 'verbal_crunches', label: 'Verbal Crunches', score: scores.verbal_crunches.current, previous: 7 },
+    { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 0 },
+    { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 0 },
+    { id: 'verbal_crunches', label: 'Verbal Crunches', score: totalFillers, previous: 0 },
   ];
 
-  const overallScore = Math.round(
-    (finalParams.reduce((s, p) => s + p.score, 0) / finalParams.length) * 10
+  const baseScore = Math.round(
+    ((scores.articulation.current + scores.expression.current) / 2) * 10
   );
+  const overallScore = Math.max(0, baseScore - fillerPenalty);
 
   // Build feedback
   const feedback: string[] = [];
