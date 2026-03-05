@@ -217,10 +217,10 @@ export default function ArenaPage() {
   const isProcessingRef = useRef(false);
 
   const [scores, setScores] = useState<Record<string, Score>>({
-    articulation: { current: 0, trend: "stable" },
-    expression: { current: 0, trend: "stable" },
-    verbal_crunches: { current: 0, trend: "stable" },
-    swap_list: { current: 0, trend: "stable" },
+    articulation: { current: 7, trend: "stable" },
+    expression: { current: 6, trend: "up" },
+    verbal_crunches: { current: 8, trend: "stable" },
+    swap_list: { current: 5, trend: "down" },
   });
 
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([
@@ -388,13 +388,15 @@ data = await response.json();
         }
       }));
       
-      // Count up from 0 — shows total fillers used so far
-      const newFillerCount = fillerWords.reduce((acc, f) => acc + f.count, 0);
+      let verbalScore = 10;
+      if (fillerWords.length > 0) {
+        verbalScore = Math.max(1, 10 - fillerWords.reduce((acc, f) => acc + f.count, 0));
+      }
       setScores(prev => ({
         ...prev,
         verbal_crunches: {
-          current: prev.verbal_crunches.current + newFillerCount,
-          trend: newFillerCount > 0 ? "down" : "stable"
+          current: verbalScore,
+          trend: verbalScore > prev.verbal_crunches.current ? "up" : verbalScore < prev.verbal_crunches.current ? "down" : "stable"
         }
       }));
       
@@ -513,20 +515,16 @@ data = await response.json();
 
   console.log('[Arena] Ending session...');
 
-  // Calculate scores — verbal_crunches.current is now total filler count (higher = worse)
-  const totalFillers = scores.verbal_crunches.current;
-  const fillerPenalty = Math.min(totalFillers * 2, 30); // up to -30 pts max penalty
-
+  // Calculate scores
   const finalParams = [
-    { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 0 },
-    { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 0 },
-    { id: 'verbal_crunches', label: 'Verbal Crunches', score: totalFillers, previous: 0 },
+    { id: 'articulation', label: 'Articulation', score: scores.articulation.current, previous: 6 },
+    { id: 'expression', label: 'Expression', score: scores.expression.current, previous: 5 },
+    { id: 'verbal_crunches', label: 'Verbal Crunches', score: scores.verbal_crunches.current, previous: 7 },
   ];
 
-  const baseScore = Math.round(
-    ((scores.articulation.current + scores.expression.current) / 2) * 10
+  const overallScore = Math.round(
+    (finalParams.reduce((s, p) => s + p.score, 0) / finalParams.length) * 10
   );
-  const overallScore = Math.max(0, baseScore - fillerPenalty);
 
   // Build feedback
   const feedback: string[] = [];
