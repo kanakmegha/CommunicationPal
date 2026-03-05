@@ -217,10 +217,10 @@ export default function ArenaPage() {
   const isProcessingRef = useRef(false);
 
   const [scores, setScores] = useState<Record<string, Score>>({
-    articulation: { current: 7, trend: "stable" },
-    expression: { current: 6, trend: "up" },
-    verbal_crunches: { current: 8, trend: "stable" },
-    swap_list: { current: 5, trend: "down" },
+    articulation: { current: 0, trend: "stable" },
+    expression: { current: 0, trend: "stable" },
+    verbal_crunches: { current: 0, trend: "stable" },
+    swap_list: { current: 0, trend: "stable" },
   });
 
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([
