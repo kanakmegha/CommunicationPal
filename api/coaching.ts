@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { supabaseService as supabase } from "../src/react-app/lib/supabase";
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseServiceRole);
 
 const SYSTEM_PROMPT = `You are Coach, a friendly conversation partner who gives speech tips.
 

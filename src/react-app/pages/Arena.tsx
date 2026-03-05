@@ -240,18 +240,25 @@ export default function ArenaPage() {
     
     try {
       const response = await fetch('/api/coaching', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: userMessage, 
-          fillerWords,
-          sessionId: sessionIdRef.current,
-          articulationFeedback: articulationNote
-        })
-      });
-      
-      const data = await response.json();
-      console.log('[Arena] API response:', data);
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    message: userMessage, 
+    fillerWords,
+    sessionId: sessionIdRef.current,
+    articulationFeedback: articulationNote
+  })
+});
+
+let data;
+
+if (!response.ok) {
+  const text = await response.text();
+  console.error("[Arena] API error:", text);
+  throw new Error(text);
+}
+
+data = await response.json();
       
       const aiText = data.response || data.fallback || getSmartFallback(userMessage, fillerWords);
       
