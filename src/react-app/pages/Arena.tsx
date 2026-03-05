@@ -533,8 +533,8 @@ export default function ArenaPage() {
     feedback.push('No filler words - great job!');
   }
 
-  // Session data for saving
-  const sessionData = {
+  // Data to save
+  const sessionPayload = {
     overall_score: overallScore,
     duration_seconds: sessionTime,
     parameter_scores: finalParams,
@@ -547,31 +547,33 @@ export default function ArenaPage() {
     focus_parameters: ['articulation', 'expression', 'verbal_crunches'],
   };
 
-  // Save to API (in background)
-  fetch('/api/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sessionData)
-  }).then(() => console.log('[Arena] Session saved'))
-    .catch(e => console.error('[Arena] Save failed:', e));
+  // ✅ AUTO-SAVE to history (no button needed)
+  try {
+    console.log('[Arena] Auto-saving session...');
+    const response = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionPayload)
+    });
+    console.log('[Arena] Save response:', response.status);
+  } catch (error) {
+    console.error('[Arena] Save failed:', error);
+  }
 
-  // IMPORTANT: Set session data for Debrief page
+  // Set data for Debrief page
   setSessionData({
     overallScore,
     previousScore: Math.max(50, overallScore - Math.floor(Math.random() * 10)),
     durationSeconds: sessionTime,
     parameters: finalParams,
-    learningCurve: sessionData.learning_curve,
+    learningCurve: sessionPayload.learning_curve,
     feedback,
     focusParameters: ['articulation', 'expression', 'verbal_crunches'],
   });
 
-  console.log('[Arena] Navigating to debrief...');
-
   // Navigate to debrief
   navigate("/debrief");
 };
-
   // Toggle listening
   const toggleListening = useCallback(() => {
     if (isSpeaking) {

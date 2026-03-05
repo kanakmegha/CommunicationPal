@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
+import { kv } from '@vercel/kv';
 
 const app = express();
 app.use(cors());

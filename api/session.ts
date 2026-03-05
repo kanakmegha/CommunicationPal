@@ -1,74 +1,74 @@
-// api/sessions.ts
-const sessionsDB: any[] = [];
+import { kv } from "@vercel/kv";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export default async function handler(req: any, res: any) {
-  // ===== DEBUG LOGGING =====
-  console.log('========================================');
-  console.log('[Sessions API] START');
-  console.log('[Sessions API] Method:', req.method);
-  console.log('[Sessions API] URL:', req.url);
-  console.log('[Sessions API] Headers:', JSON.stringify(req.headers));
-  console.log('[Sessions API] Body:', JSON.stringify(req.body));
-  console.log('[Sessions API] Current sessions count:', sessionsDB.length);
-  console.log('========================================');
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("========================================");
+  console.log("[Sessions API] START");
+  console.log("[Sessions API] Method:", req.method);
+  console.log("[Sessions API] URL:", req.url);
+  console.log("========================================");
 
   // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle OPTIONS
-  if (req.method === 'OPTIONS') {
-    console.log('[Sessions API] Handling OPTIONS preflight');
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // GET - Fetch all sessions
-  if (req.method === 'GET') {
-    console.log('[Sessions API] GET request - returning', sessionsDB.length, 'sessions');
-    console.log('[Sessions API] Sessions data:', JSON.stringify(sessionsDB));
-    return res.json(sessionsDB);
-  }
+  try {
+    // =========================
+    // GET - Fetch sessions
+    // =========================
+    if (req.method === "GET") {
+      const sessions = await kv.lrange("sessions", 0, 50);
 
-  // POST - Save session
-  if (req.method === 'POST') {
-    console.log('[Sessions API] POST request - saving session');
-    
-    try {
+      console.log("[Sessions API] Returning sessions:", sessions.length);
+
+      return res.json(sessions);
+    }
+
+    // =========================
+    // POST - Save session
+    // =========================
+    if (req.method === "POST") {
       const session = {
         id: Date.now(),
         ...req.body,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
-      
-      console.log('[Sessions API] Session to save:', JSON.stringify(session));
-      
-      sessionsDB.unshift(session);
-      
-      console.log('[Sessions API] ✅ Session saved successfully');
-      console.log('[Sessions API] Total sessions now:', sessionsDB.length);
-      
-      return res.json({ 
-        success: true, 
+
+      console.log("[Sessions API] Saving session:", session.id);
+
+      // push to KV list
+      await kv.lpush("sessions", session);
+
+      const totalSessions = await kv.llen("sessions");
+
+      console.log("[Sessions API] Session saved. Total:", totalSessions);
+
+      return res.json({
+        success: true,
         session,
         debug: {
-          totalSessions: sessionsDB.length,
-          savedAt: session.created_at
-        }
-      });
-    } catch (error: any) {
-      console.log('[Sessions API] ❌ Error saving:', error.message);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message 
+          totalSessions,
+          savedAt: session.created_at,
+        },
       });
     }
-  }
 
-  // Unknown method
-  console.log('[Sessions API] ❌ Unknown method:', req.method);
-  return res.status(405).json({ 
-    error: 'Method not allowed',
-    allowedMethods: ['GET', 'POST', 'OPTIONS']
-  });
+    return res.status(405).json({
+      error: "Method not allowed",
+      allowedMethods: ["GET", "POST", "OPTIONS"],
+    });
+
+  } catch (error: any) {
+    console.error("[Sessions API] ERROR:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
 }
