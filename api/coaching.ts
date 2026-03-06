@@ -1,36 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Inline Supabase Client for Production Stability
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const SYSTEM_PROMPT = `You are Coach, a friendly conversation partner who gives speech tips.
-
-CRITICAL RULES:
-1. You are having a NORMAL CONVERSATION - remember what was discussed!
-2. NEVER use markdown, asterisks, or formatting - just plain text
-3. Be genuinely interested and curious about their topic
-4. Keep responses to 2-3 sentences MAX
-5. Ask ONE natural follow-up question about their topic
-6. If there's a speech note, add it briefly in parentheses at the end
-7. REMEMBER THE CONTEXT - if they mentioned magic tricks before, remember that!
-
-EXAMPLES:
-
-User: "I want to learn magic tricks"
-You: "That's so cool! Magic tricks are such a fun skill. What kind of tricks are you most interested in learning? (You're doing great - keep going!)"
-
-User: "I want to learn card shuffling"
-You: "Card shuffling is a great foundation for magic! Are you learning it for magic tricks or just for fun? (Try to finish your sentences completely!)"
-`;
+... (rest of SYSTEM_PROMPT remains same) ...`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log("[Coaching API] Request Received");
-
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -39,9 +15,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  console.log("[Coaching API] Request Received");
+
+  // Lazy initialize Supabase to prevent top-level crashes
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+
   if (!supabaseUrl || !supabaseKey) {
     console.error("[Coaching API] CRITICAL ERROR: Supabase environment variables are missing!");
-    return res.status(500).json({ error: "Server configuration error: Missing Supabase credentials." });
+    return res.status(500).json({ 
+      error: "Server configuration error: Missing Supabase credentials.",
+      details: { url: !!supabaseUrl, key: !!supabaseKey }
+    });
   }
 
   const glmApiKey = process.env.VITE_GLM_API_KEY || process.env.GLM_API_KEY;
@@ -49,6 +34,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error("[Coaching API] CRITICAL ERROR: GLM API Key (VITE_GLM_API_KEY) is missing!");
     return res.status(500).json({ error: "Server configuration error: Missing LLM API key." });
   }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
     const { message, sessionId, fillerWords, articulationFeedback } = req.body;

@@ -1,24 +1,29 @@
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// Inline Supabase Client for Production Stability
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  console.log("[Sessions API] Request Received:", req.method);
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("[Sessions API] CRITICAL ERROR: Supabase environment variables are missing!");
-    return res.status(500).json({ error: "Server configuration error: Missing Supabase credentials." });
-  }
-
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  console.log("[Sessions API] Request Received:", req.method);
+
+  // Lazy initialize Supabase to prevent top-level crashes
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const supabaseKey = process.env.SERVICE_ROLE_KEY || process.env.VITE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("[Sessions API] CRITICAL ERROR: Supabase environment variables are missing!");
+    return res.status(500).json({ 
+      error: "Server configuration error: Missing Supabase credentials.",
+      details: { url: !!supabaseUrl, key: !!supabaseKey }
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
 

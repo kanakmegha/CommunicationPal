@@ -96,7 +96,7 @@ export default function DebriefPage() {
 
         {/* Actions - NO SAVE BUTTON, session already saved automatically */}
         <div className="flex gap-4">
-          <Button className="flex-1" onClick={() => navigate("/arena")}>
+          <Button className="flex-1" onClick={() => navigate("/")}>
             New Session
           </Button>
           <Button variant="outline" className="flex-1" onClick={() => navigate("/vault")}>
